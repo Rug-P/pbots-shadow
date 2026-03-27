@@ -173,13 +173,18 @@ class InventoryTracker:
         if trader_side in ("MAKER", "TAKER"):
             is_maker = trader_side == "MAKER"
         else:
-            # Fallback: check explicit maker address fields
-            is_maker = False
-            for field in ("maker_address", "maker"):
-                val = trade.get(field)
-                if val and str(val).lower() == addr:
-                    is_maker = True
-                    break
+            # Fallback: _fetch_role injected by fetcher
+            fetch_role = str(trade.get("_fetch_role", "")).upper()
+            if fetch_role in ("MAKER", "TAKER"):
+                is_maker = fetch_role == "MAKER"
+            else:
+                # Fallback: check explicit maker address fields
+                is_maker = False
+                for field in ("maker_address", "maker"):
+                    val = trade.get(field)
+                    if val and str(val).lower() == addr:
+                        is_maker = True
+                        break
 
         raw_side = str(trade.get("side", "")).lower()
         if raw_side in ("buy", "sell"):
