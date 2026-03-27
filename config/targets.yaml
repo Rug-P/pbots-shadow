@@ -1,0 +1,32 @@
+# 🌑 PBot's Shadow — Target Wallets
+# Add Polymarket bot wallets to spy on
+
+targets:
+  - name: "PBot-1"
+    address: "0x88f46b9e5d86b4fb85be55ab0ec4004264b9d4db"
+    polymarket_url: "https://polymarket.com/@PBot-1"
+    analytics_url: "https://polymarketanalytics.com/traders/0x88f46b9e5d86b4fb85be55ab0ec4004264b9d4db"
+    notes: "Suspected pure market maker. ~27K+ trades. ~$58K/month profit."
+    priority: 1
+    status: "active"
+
+  - name: "majorexploiter"
+    address: ""
+    notes: "+$2.4M profit. $6.95M volume. Top #1 all-time. Address TBD."
+    priority: 2
+    status: "pending"
+
+  - name: "swisstony"
+    address: ""
+    notes: "+$856K profit. $137M volume. Liquidity provider. Address TBD."
+    priority: 3
+    status: "pending"
+
+settings:
+  polymarket_data_api: "https://data-api.polymarket.com"
+  polymarket_clob_api: "https://clob.polymarket.com"
+  gamma_api: "https://gamma-api.polymarket.com"
+  default_trade_limit: 500
+  max_pagination_offset: 50000
+  cache_dir: "data"
+  rate_limit_delay: 0.5
