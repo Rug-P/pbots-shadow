@@ -8,7 +8,7 @@ import json
 import os
 import time
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 import requests
 from rich.console import Console
@@ -124,10 +124,67 @@ class TradeFetcher:
             console.print(f"[yellow]⚠️  Could not write cache: {exc}[/yellow]")
 
     def _fetch_all_pages(self, address: str) -> List[Dict]:
-        """Paginate through the API and return every trade."""
+        """Paginate through the API and return every trade.
+
+        Strategy:
+        1. Try ``?user={address}`` first (single endpoint, no role injection).
+        2. If that returns 0 trades, fall back to fetching both
+           ``?maker={address}`` and ``?taker={address}``, inject a
+           ``_fetch_role`` metadata field (``"maker"`` / ``"taker"``) into
+           every trade, then deduplicate by ``id`` (first occurrence wins).
+        """
+        # --- Attempt 1: ?user= ---
+        user_trades = self._fetch_pages(address, "user", label="user")
+        if user_trades:
+            console.print(
+                f"[green]✅ Fetched [bold]{len(user_trades):,}[/bold] trades from API[/green]"
+            )
+            return user_trades
+
+        console.print(
+            "[yellow]⚠️  ?user= returned 0 trades — trying ?maker= + ?taker= fallback…[/yellow]"
+        )
+
+        # --- Attempt 2: dual maker + taker endpoints ---
+        maker_trades = self._fetch_pages(address, "maker", label="maker")
+        for t in maker_trades:
+            t["_fetch_role"] = "maker"
+
+        taker_trades = self._fetch_pages(address, "taker", label="taker")
+        for t in taker_trades:
+            t["_fetch_role"] = "taker"
+
+        # Deduplicate by id; maker_trades are listed first so their _fetch_role wins.
+        # Trades without an id field are always included (no deduplication possible).
+        seen_ids: Set[str] = set()
+        all_trades: List[Dict] = []
+        for trade in maker_trades + taker_trades:
+            tid = trade.get("id")
+            if tid is None or tid not in seen_ids:
+                if tid is not None:
+                    seen_ids.add(tid)
+                all_trades.append(trade)
+
+        console.print(
+            f"[green]✅ Fetched [bold]{len(all_trades):,}[/bold] trades from API "
+            f"([bold]{len(maker_trades):,}[/bold] maker + "
+            f"[bold]{len(taker_trades):,}[/bold] taker, "
+            f"deduplicated)[/green]"
+        )
+        return all_trades
+
+    def _fetch_pages(self, address: str, param: str, label: str = "") -> List[Dict]:
+        """Paginate through ``/trades?{param}={address}`` and return all trades.
+
+        Args:
+            address: Wallet address to query.
+            param:   Query-parameter name — ``"user"``, ``"maker"``, or ``"taker"``.
+            label:   Human-readable label used in progress-bar text.
+        """
         all_trades: List[Dict] = []
         offset = 0
         last_match_time: Optional[str] = None
+        display = label or param
 
         with Progress(
             SpinnerColumn(),
@@ -138,13 +195,13 @@ class TradeFetcher:
             transient=True,
         ) as progress:
             task = progress.add_task(
-                f"[cyan]Fetching trades for {address[:10]}…", total=None
+                f"[cyan]Fetching {display} trades for {address[:10]}…", total=None
             )
 
             while offset <= self.max_offset:
                 url = (
                     f"{self.base_url}/trades"
-                    f"?user={address}&limit={self.limit}&offset={offset}"
+                    f"?{param}={address}&limit={self.limit}&offset={offset}"
                 )
                 batch, next_cursor = self._get_with_retry(url)
 
@@ -153,11 +210,10 @@ class TradeFetcher:
                     if last_match_time and offset > 0:
                         url_ts = (
                             f"{self.base_url}/trades"
-                            f"?user={address}&limit={self.limit}"
+                            f"?{param}={address}&limit={self.limit}"
                             f"&startTs={last_match_time}"
                         )
                         batch_ts, _ = self._get_with_retry(url_ts)
-                        # Only use if we get new trades not already collected
                         existing_ids = {t2.get("id") for t2 in all_trades}
                         new_trades = [t for t in batch_ts if t.get("id") not in existing_ids]
                         if new_trades:
@@ -165,7 +221,7 @@ class TradeFetcher:
                             progress.update(
                                 task,
                                 description=(
-                                    f"[cyan]Fetching… {len(all_trades):,} trades "
+                                    f"[cyan]Fetching {display}… {len(all_trades):,} trades "
                                     f"(ts fallback after offset {offset})"
                                 ),
                                 advance=len(new_trades),
@@ -183,7 +239,7 @@ class TradeFetcher:
                 progress.update(
                     task,
                     description=(
-                        f"[cyan]Fetching… {len(all_trades):,} trades "
+                        f"[cyan]Fetching {display}… {len(all_trades):,} trades "
                         f"(offset {offset})"
                     ),
                     advance=len(batch),
@@ -196,7 +252,7 @@ class TradeFetcher:
                 if next_cursor:
                     url = (
                         f"{self.base_url}/trades"
-                        f"?user={address}&limit={self.limit}"
+                        f"?{param}={address}&limit={self.limit}"
                         f"&cursor={next_cursor}"
                     )
                     batch, next_cursor = self._get_with_retry(url)
@@ -210,7 +266,7 @@ class TradeFetcher:
                     progress.update(
                         task,
                         description=(
-                            f"[cyan]Fetching… {len(all_trades):,} trades (cursor)"
+                            f"[cyan]Fetching {display}… {len(all_trades):,} trades (cursor)"
                         ),
                         advance=len(batch),
                     )
@@ -221,9 +277,6 @@ class TradeFetcher:
                 offset += self.limit
                 time.sleep(self.rate_limit_delay)
 
-        console.print(
-            f"[green]✅ Fetched [bold]{len(all_trades):,}[/bold] trades from API[/green]"
-        )
         return all_trades
 
     def _get_with_retry(

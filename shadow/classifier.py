@@ -94,6 +94,11 @@ class StrategyClassifier:
         if trader_side == "TAKER":
             return "taker"
 
+        # --- Fallback: _fetch_role injected by fetcher ---
+        fetch_role = str(trade.get("_fetch_role", "")).lower()
+        if fetch_role in ("maker", "taker"):
+            return fetch_role
+
         # --- Fallback: explicit maker address match ---
         for field in ("maker_address", "maker"):
             val = trade.get(field)
