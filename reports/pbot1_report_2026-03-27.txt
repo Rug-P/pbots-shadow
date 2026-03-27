@@ -1,0 +1,59 @@
+
+🌑 PBot's Shadow — spying on PBot-1 
+(0x88f46b9e5d86b4fb85be55ab0ec4004264b9d4db)
+
+📦 Loaded 3,500 trades from cache (cached at 2026-03-27T16:27:28.068249+00:00)
+🔬 Analysing 3,500 trades…
+
+─────────────────── 🌑 PBot's Shadow — Intelligence Report ────────────────────
+
+🎯 Target: PBot-1 (0x88f46b9e5d86b4fb85be55ab0ec4004264b9d4db)
+📊 Trades Analyzed: 3,500
+⏱️  Period: 2026-02-09 → 2026-03-24
+
+─────────────────────── ═══ STRATEGY CLASSIFICATION ═══ ───────────────────────
+🏷️  Type: BALANCED (0.0% maker fills)
+📊 Maker: 0 | Taker: 0
+🎯 Confidence: HIGH
+
+─────────────────────────── ═══ TIMING PROFILE ═══ ────────────────────────────
+⚡ Speed Class: SLOW_OR_MANUAL
+📈 Avg Interval: 1051.16s
+📊 Trades/Day: ~82
+🕐 Peak Hours: 00:00-17:00 UTC
+
+─────────────────────────── ═══ SPREAD ANALYSIS ═══ ───────────────────────────
+💰 Avg Spread: $0.0000/share
+🔬 Tightest: $0.0000 (market: N/A)
+🔭 Widest:   $0.0000 (market: N/A)
+
+────────────────────────── ═══ MARKET SELECTION ═══ ───────────────────────────
+┌─────────┬──────────┬────────┬──────────┬────────┐
+│ Market  │ Category │ Trades │   Volume │      % │
+├─────────┼──────────┼────────┼──────────┼────────┤
+│ unknown │ unknown  │  3,500 │ $372,249 │ 100.0% │
+└─────────┴──────────┴────────┴──────────┴────────┘
+
+──────────────────────── ═══ INVENTORY MANAGEMENT ═══ ─────────────────────────
+📦 Max Exposure: $372,248.7371 shares
+📊 Avg Exposure: $372,248.7371 shares
+🎯 Delta-Neutral Score: 0.00/1.00
+🏪 Markets w/ Open Inventory: 1
+⏱️  Avg Holding Time: N/A
+
+────────────────────────── ═══ P/L DECOMPOSITION ═══ ──────────────────────────
+💵 Spread P/L:     $0.0000 (0.0%)
+🎯 Resolution P/L: $0.0000 (0.0%)
+💰 Total P/L Est:  $0.0000
+
+───────────────────────── ═══ RESOLUTION BEHAVIOR ═══ ─────────────────────────
+🏁 Pattern: INSUFFICIENT_DATA
+📊 Markets Analyzed: 0
+
+───────────────────────── ═══ ACTIONABLE INSIGHTS ═══ ─────────────────────────
+💡 Bot is a Balanced with 0.0% maker ratio
+💡 SLOW_OR_MANUAL speed class (avg 1051.16s between trades)
+💡 Primarily trades unknown (100% of trades)
+💡 Takes directional risk (delta-neutral score 0.00)
+──────────────────────────────── End of Report ────────────────────────────────
+
