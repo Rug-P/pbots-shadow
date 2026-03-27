@@ -116,7 +116,7 @@ class MarketAnalyzer:
 
     @staticmethod
     def _get_market_id(trade: Dict) -> str:
-        for field in ("market", "condition_id", "asset_id", "market_id", "token_id"):
+        for field in ("asset_id", "market", "condition_id", "market_id", "token_id"):
             val = trade.get(field)
             if val:
                 return str(val)
@@ -124,21 +124,22 @@ class MarketAnalyzer:
 
     @staticmethod
     def _get_volume(trade: Dict) -> float:
-        for field in ("size", "amount", "usdc_amount", "usdcSize", "notional"):
+        # size from the real API is in USDC base units (6 decimals); compute price * size / 1e6
+        price = trade.get("price")
+        size = trade.get("size")
+        if price is not None and size is not None:
+            try:
+                return abs(float(price) * float(size) / 1e6)
+            except (TypeError, ValueError):
+                pass
+        # Fallback: pre-computed USDC amount fields
+        for field in ("usdc_amount", "usdcSize", "notional", "amount"):
             val = trade.get(field)
             if val is not None:
                 try:
                     return abs(float(val))
                 except (TypeError, ValueError):
                     pass
-        # Fallback: price * size
-        price = trade.get("price")
-        size = trade.get("size")
-        if price is not None and size is not None:
-            try:
-                return abs(float(price) * float(size))
-            except (TypeError, ValueError):
-                pass
         return 0.0
 
     def _get_market_meta(self, market_id: str) -> Dict:
@@ -158,6 +159,7 @@ class MarketAnalyzer:
             f"{self.gamma_api}/markets/{market_id}",
             f"{self.gamma_api}/markets?conditionId={market_id}",
             f"{self.gamma_api}/markets?id={market_id}",
+            f"{self.gamma_api}/markets?clob_token_ids=[{market_id}]",
         ]
         for url in urls:
             try:

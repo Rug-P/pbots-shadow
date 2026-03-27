@@ -122,7 +122,7 @@ class InventoryTracker:
 
     @staticmethod
     def _get_market_id(trade: Dict) -> str:
-        for field in ("market", "condition_id", "asset_id", "market_id", "token_id"):
+        for field in ("asset_id", "market", "condition_id", "market_id", "token_id"):
             val = trade.get(field)
             if val:
                 return str(val)
@@ -130,7 +130,14 @@ class InventoryTracker:
 
     @staticmethod
     def _get_size(trade: Dict) -> float:
-        for field in ("size", "shares", "amount", "quantity"):
+        val = trade.get("size")
+        if val is not None:
+            try:
+                # size from the real API is in USDC base units (6 decimals)
+                return abs(float(val) / 1e6)
+            except (TypeError, ValueError):
+                pass
+        for field in ("shares", "amount", "quantity"):
             val = trade.get(field)
             if val is not None:
                 try:
@@ -141,13 +148,18 @@ class InventoryTracker:
 
     @staticmethod
     def _get_timestamp(trade: Dict) -> Optional[float]:
-        for field in ("timestamp", "created_at", "transacted_at", "time"):
+        for field in ("match_time", "last_update", "timestamp", "created_at", "transacted_at", "time"):
             val = trade.get(field)
             if val is None:
                 continue
             if isinstance(val, (int, float)):
                 return float(val)
             if isinstance(val, str):
+                # Try numeric epoch string first (e.g. "1700000000")
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    pass
                 try:
                     return dateutil_parser.parse(val).replace(tzinfo=timezone.utc).timestamp()
                 except (ValueError, OverflowError):
@@ -156,13 +168,18 @@ class InventoryTracker:
 
     @staticmethod
     def _get_side(trade: Dict, addr: str) -> str:
-        # Check explicit maker/taker fields to determine address role
-        is_maker = False
-        for field in ("maker_address", "maker"):
-            val = trade.get(field)
-            if val and str(val).lower() == addr:
-                is_maker = True
-                break
+        # Primary: trader_side field (real Polymarket Data API)
+        trader_side = str(trade.get("trader_side", "")).upper()
+        if trader_side in ("MAKER", "TAKER"):
+            is_maker = trader_side == "MAKER"
+        else:
+            # Fallback: check explicit maker address fields
+            is_maker = False
+            for field in ("maker_address", "maker"):
+                val = trade.get(field)
+                if val and str(val).lower() == addr:
+                    is_maker = True
+                    break
 
         raw_side = str(trade.get("side", "")).lower()
         if raw_side in ("buy", "sell"):

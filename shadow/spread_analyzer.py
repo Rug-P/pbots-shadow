@@ -120,7 +120,7 @@ class SpreadAnalyzer:
 
     @staticmethod
     def _get_market_id(trade: Dict) -> str:
-        for field in ("market", "condition_id", "asset_id", "market_id", "token_id"):
+        for field in ("asset_id", "market", "condition_id", "market_id", "token_id"):
             val = trade.get(field)
             if val:
                 return str(val)
@@ -146,13 +146,19 @@ class SpreadAnalyzer:
         invert it; for taker trades we use the field as-is.
         """
         raw_side = str(trade.get("side", "")).lower()
-        is_maker = False
 
-        for field in ("maker_address", "maker"):
-            val = trade.get(field)
-            if val and str(val).lower() == addr:
-                is_maker = True
-                break
+        # Primary: trader_side field (real Polymarket Data API)
+        trader_side = str(trade.get("trader_side", "")).upper()
+        if trader_side in ("MAKER", "TAKER"):
+            is_maker = trader_side == "MAKER"
+        else:
+            # Fallback: check maker_address
+            is_maker = False
+            for field in ("maker_address", "maker"):
+                val = trade.get(field)
+                if val and str(val).lower() == addr:
+                    is_maker = True
+                    break
 
         if raw_side in ("buy", "sell"):
             if is_maker:

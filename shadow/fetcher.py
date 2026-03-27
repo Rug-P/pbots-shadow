@@ -127,6 +127,7 @@ class TradeFetcher:
         """Paginate through the API and return every trade."""
         all_trades: List[Dict] = []
         offset = 0
+        last_match_time: Optional[str] = None
 
         with Progress(
             SpinnerColumn(),
@@ -145,12 +146,40 @@ class TradeFetcher:
                     f"{self.base_url}/trades"
                     f"?user={address}&limit={self.limit}&offset={offset}"
                 )
-                batch = self._get_with_retry(url)
+                batch, next_cursor = self._get_with_retry(url)
 
                 if not batch:
+                    # Offset pagination exhausted; try timestamp-based fallback
+                    if last_match_time and offset > 0:
+                        url_ts = (
+                            f"{self.base_url}/trades"
+                            f"?user={address}&limit={self.limit}"
+                            f"&startTs={last_match_time}"
+                        )
+                        batch_ts, _ = self._get_with_retry(url_ts)
+                        # Only use if we get new trades not already collected
+                        existing_ids = {t2.get("id") for t2 in all_trades}
+                        new_trades = [t for t in batch_ts if t.get("id") not in existing_ids]
+                        if new_trades:
+                            all_trades.extend(new_trades)
+                            progress.update(
+                                task,
+                                description=(
+                                    f"[cyan]Fetching… {len(all_trades):,} trades "
+                                    f"(ts fallback after offset {offset})"
+                                ),
+                                advance=len(new_trades),
+                            )
                     break  # no more pages
 
                 all_trades.extend(batch)
+
+                # Track the latest match_time for timestamp-based pagination fallback
+                for t in batch:
+                    mt = t.get("match_time") or t.get("last_update")
+                    if mt:
+                        last_match_time = str(mt)
+
                 progress.update(
                     task,
                     description=(
@@ -163,6 +192,32 @@ class TradeFetcher:
                 if len(batch) < self.limit:
                     break  # last page
 
+                # If API provided a cursor, prefer cursor-based next page
+                if next_cursor:
+                    url = (
+                        f"{self.base_url}/trades"
+                        f"?user={address}&limit={self.limit}"
+                        f"&cursor={next_cursor}"
+                    )
+                    batch, next_cursor = self._get_with_retry(url)
+                    if not batch:
+                        break
+                    all_trades.extend(batch)
+                    for t in batch:
+                        mt = t.get("match_time") or t.get("last_update")
+                        if mt:
+                            last_match_time = str(mt)
+                    progress.update(
+                        task,
+                        description=(
+                            f"[cyan]Fetching… {len(all_trades):,} trades (cursor)"
+                        ),
+                        advance=len(batch),
+                    )
+                    if len(batch) < self.limit:
+                        break
+                    # Continue with offset for next iteration (cursor pages handled inline)
+
                 offset += self.limit
                 time.sleep(self.rate_limit_delay)
 
@@ -173,8 +228,11 @@ class TradeFetcher:
 
     def _get_with_retry(
         self, url: str, max_retries: int = 3, backoff: float = 2.0
-    ) -> List[Dict]:
-        """GET *url* with exponential back-off on failures."""
+    ) -> tuple:
+        """GET *url* with exponential back-off on failures.
+
+        Returns a tuple of (trades_list, next_cursor_or_None).
+        """
         for attempt in range(max_retries):
             try:
                 resp = requests.get(url, timeout=30)
@@ -192,13 +250,15 @@ class TradeFetcher:
 
                 # The API may return a list directly or wrap it in a dict
                 if isinstance(data, list):
-                    return data
+                    return data, None
                 if isinstance(data, dict):
-                    for key in ("data", "trades", "results"):
+                    next_cursor = data.get("next_cursor") or data.get("cursor")
+                    # Check known wrapper keys; 'history' is used by some Polymarket endpoints
+                    for key in ("history", "data", "trades", "results"):
                         if key in data and isinstance(data[key], list):
-                            return data[key]
-                    return []
-                return []
+                            return data[key], next_cursor
+                    return [], next_cursor
+                return [], None
 
             except requests.exceptions.Timeout:
                 console.print(
@@ -210,13 +270,13 @@ class TradeFetcher:
                 )
             except requests.exceptions.HTTPError as exc:
                 console.print(f"[red]❌ HTTP error: {exc}[/red]")
-                return []
+                return [], None
             except (ValueError, KeyError) as exc:
                 console.print(f"[red]❌ JSON parse error: {exc}[/red]")
-                return []
+                return [], None
 
             if attempt < max_retries - 1:
                 time.sleep(backoff ** (attempt + 1))
 
         console.print("[red]❌ All retries exhausted for URL: " + url + "[/red]")
-        return []
+        return [], None

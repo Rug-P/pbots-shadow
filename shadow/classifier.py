@@ -87,16 +87,18 @@ class StrategyClassifier:
 
         Tries several field name variants used by different API versions.
         """
-        # --- Explicit maker/taker address fields ---
+        # --- Primary: trader_side field (real Polymarket Data API) ---
+        trader_side = str(trade.get("trader_side", "")).upper()
+        if trader_side == "MAKER":
+            return "maker"
+        if trader_side == "TAKER":
+            return "taker"
+
+        # --- Fallback: explicit maker address match ---
         for field in ("maker_address", "maker"):
             val = trade.get(field)
             if val and str(val).lower() == addr:
                 return "maker"
-
-        for field in ("taker_address", "taker"):
-            val = trade.get(field)
-            if val and str(val).lower() == addr:
-                return "taker"
 
         # --- Infer from order_type / type field ---
         order_type = str(trade.get("order_type", trade.get("type", ""))).lower()
