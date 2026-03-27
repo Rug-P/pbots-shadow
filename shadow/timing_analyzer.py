@@ -113,7 +113,7 @@ class TimingAnalyzer:
 
     @staticmethod
     def _parse_timestamp(trade: Dict) -> Optional[datetime]:
-        for field in ("timestamp", "created_at", "transacted_at", "time", "date"):
+        for field in ("match_time", "last_update", "timestamp", "created_at", "transacted_at", "time", "date"):
             val = trade.get(field)
             if val is None:
                 continue
@@ -123,8 +123,12 @@ class TimingAnalyzer:
                     return datetime.fromtimestamp(val, tz=timezone.utc)
                 except (OSError, OverflowError, ValueError):
                     pass
-            # ISO string
+            # String — try numeric epoch first, then ISO format
             if isinstance(val, str):
+                try:
+                    return datetime.fromtimestamp(float(val), tz=timezone.utc)
+                except (OSError, OverflowError, ValueError):
+                    pass
                 try:
                     parsed = dateutil_parser.parse(val)
                     if parsed.tzinfo is not None:

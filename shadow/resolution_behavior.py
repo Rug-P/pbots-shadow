@@ -131,7 +131,7 @@ class ResolutionAnalyzer:
 
     @staticmethod
     def _get_market_id(trade: Dict) -> str:
-        for field in ("market", "condition_id", "asset_id", "market_id", "token_id"):
+        for field in ("asset_id", "market", "condition_id", "market_id", "token_id"):
             val = trade.get(field)
             if val:
                 return str(val)
@@ -160,13 +160,18 @@ class ResolutionAnalyzer:
 
     @staticmethod
     def _get_ts(trade: Dict) -> Optional[float]:
-        for field in ("timestamp", "created_at", "transacted_at", "time"):
+        for field in ("match_time", "last_update", "timestamp", "created_at", "transacted_at", "time"):
             val = trade.get(field)
             if val is None:
                 continue
             if isinstance(val, (int, float)):
                 return float(val)
             if isinstance(val, str):
+                # Try numeric epoch string first (e.g. "1700000000")
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    pass
                 try:
                     return dateutil_parser.parse(val).replace(tzinfo=timezone.utc).timestamp()
                 except (ValueError, OverflowError):
