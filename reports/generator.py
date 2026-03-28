@@ -1,11 +1,12 @@
 """
-reports/generator.py - Generate formatted intelligence reports.
+reports/generator.py — Generate formatted intelligence reports.
 
 Produces beautiful terminal output using the `rich` library and optionally
 exports a Markdown file with the full intelligence report.
 """
 
 import os
+import re
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
@@ -37,18 +38,18 @@ class ReportGenerator:
 
         # Header
         c.print()
-        c.rule("[bold magenta]- PBot's Shadow - Intelligence Report[/bold magenta]")
+        c.rule("[bold magenta]🌑 PBot's Shadow — Intelligence Report[/bold magenta]")
         c.print()
-        c.print(f"[bold]- Target:[/bold] {target_name} ([dim]{address}[/dim])")
+        c.print(f"[bold]🎯 Target:[/bold] {target_name} ([dim]{address}[/dim])")
 
         trades = results.get("classification", {}).get("total_trades", 0)
-        c.print(f"[bold]- Trades Analyzed:[/bold] {trades:,}")
+        c.print(f"[bold]📊 Trades Analyzed:[/bold] {trades:,}")
 
         timing = results.get("timing", {})
         if timing.get("first_trade") and timing.get("last_trade"):
             c.print(
-                f"[bold]--  Period:[/bold] "
-                f"{timing['first_trade'][:10]} - {timing['last_trade'][:10]}"
+                f"[bold]⏱️  Period:[/bold] "
+                f"{timing['first_trade'][:10]} → {timing['last_trade'][:10]}"
             )
 
         # Strategy Classification
@@ -87,7 +88,7 @@ class ReportGenerator:
         lines = self._build_markdown(results, target_name)
         with open(filepath, "w") as fh:
             fh.write("\n".join(lines))
-        console.print(f"[green]- Report saved to {filepath}[/green]")
+        console.print(f"[green]📄 Report saved to {filepath}[/green]")
 
     # ------------------------------------------------------------------
     # Section renderers
@@ -95,7 +96,7 @@ class ReportGenerator:
 
     def _print_section(self, title: str, content) -> None:
         console.print()
-        console.rule(f"[bold cyan]--- {title} ---[/bold cyan]", style="cyan")
+        console.rule(f"[bold cyan]═══ {title} ═══[/bold cyan]", style="cyan")
         if isinstance(content, str):
             console.print(content)
         else:
@@ -112,9 +113,9 @@ class ReportGenerator:
         conf = clf.get("confidence", "?")
         color = "green" if "MAKER" in st else "yellow" if "HYBRID" in st else "red"
         return (
-            f"[bold {color}]--  Type: {st}[/bold {color}] ({mr:.1f}% maker fills)\n"
-            f"- Maker: [green]{mc:,}[/green] | Taker: [red]{tc:,}[/red]\n"
-            f"- Confidence: [bold]{conf}[/bold]"
+            f"[bold {color}]🏷️  Type: {st}[/bold {color}] ({mr:.1f}% maker fills)\n"
+            f"📊 Maker: [green]{mc:,}[/green] | Taker: [red]{tc:,}[/red]\n"
+            f"🎯 Confidence: [bold]{conf}[/bold]"
         )
 
     def _render_timing(self, results: Dict) -> str:
@@ -126,10 +127,10 @@ class ReportGenerator:
         tpd = t.get("trades_per_day", 0)
         pw = t.get("peak_hour_window_utc", "unknown")
         return (
-            f"- Speed Class: [bold yellow]{sc}[/bold yellow]\n"
-            f"- Avg Interval: [cyan]{ai}s[/cyan]\n"
-            f"- Trades/Day: [cyan]~{tpd:.0f}[/cyan]\n"
-            f"- Peak Hours: [cyan]{pw}[/cyan]"
+            f"⚡ Speed Class: [bold yellow]{sc}[/bold yellow]\n"
+            f"📈 Avg Interval: [cyan]{ai}s[/cyan]\n"
+            f"📊 Trades/Day: [cyan]~{tpd:.0f}[/cyan]\n"
+            f"🕐 Peak Hours: [cyan]{pw}[/cyan]"
         )
 
     def _render_spread(self, results: Dict) -> str:
@@ -143,9 +144,9 @@ class ReportGenerator:
         widest = s.get("widest_market", {}) or {}
 
         lines = [
-            f"- Avg Spread: [bold green]${avg:.4f}/share[/bold green]",
-            f"- Tightest: [green]${mn:.4f}[/green] (market: {tightest.get('market_id', 'N/A')[:20]})",
-            f"- Widest:   [red]${mx:.4f}[/red] (market: {widest.get('market_id', 'N/A')[:20]})",
+            f"💰 Avg Spread: [bold green]${avg:.4f}/share[/bold green]",
+            f"🔬 Tightest: [green]${mn:.4f}[/green] (market: {tightest.get('market_id', 'N/A')[:20]})",
+            f"🔭 Widest:   [red]${mx:.4f}[/red] (market: {widest.get('market_id', 'N/A')[:20]})",
         ]
         if s.get("top_markets"):
             table = Table(show_header=True, header_style="bold magenta", box=None)
@@ -201,11 +202,11 @@ class ReportGenerator:
         ht = inv.get("avg_holding_time_s")
         holding = f"{ht:.0f}s" if ht else "N/A"
         return (
-            f"- Max Exposure: [bold red]${me:,.4f}[/bold red] shares\n"
-            f"- Avg Exposure: [yellow]${ae:,.4f}[/yellow] shares\n"
-            f"- Delta-Neutral Score: [bold green]{dn:.2f}/1.00[/bold green]\n"
-            f"- Markets w/ Open Inventory: [yellow]{mwi}[/yellow]\n"
-            f"--  Avg Holding Time: [cyan]{holding}[/cyan]"
+            f"📦 Max Exposure: [bold red]${me:,.4f}[/bold red] shares\n"
+            f"📊 Avg Exposure: [yellow]${ae:,.4f}[/yellow] shares\n"
+            f"🎯 Delta-Neutral Score: [bold green]{dn:.2f}/1.00[/bold green]\n"
+            f"🏪 Markets w/ Open Inventory: [yellow]{mwi}[/yellow]\n"
+            f"⏱️  Avg Holding Time: [cyan]{holding}[/cyan]"
         )
 
     def _render_pnl(self, results: Dict) -> str:
@@ -218,9 +219,9 @@ class ReportGenerator:
         spct = pnl.get("spread_pct", 0)
         rpct = pnl.get("resolution_pct", 0)
         return (
-            f"- Spread P/L:     [bold green]${sp:,.4f}[/bold green] ({spct:.1f}%)\n"
-            f"- Resolution P/L: [bold cyan]${rp:,.4f}[/bold cyan] ({rpct:.1f}%)\n"
-            f"- Total P/L Est:  [bold yellow]${tp:,.4f}[/bold yellow]"
+            f"💵 Spread P/L:     [bold green]${sp:,.4f}[/bold green] ({spct:.1f}%)\n"
+            f"🎯 Resolution P/L: [bold cyan]${rp:,.4f}[/bold cyan] ({rpct:.1f}%)\n"
+            f"💰 Total P/L Est:  [bold yellow]${tp:,.4f}[/bold yellow]"
         )
 
     def _render_resolution(self, results: Dict) -> str:
@@ -231,18 +232,21 @@ class ReportGenerator:
         analyzed = rb.get("markets_analyzed", 0)
         color = "green" if op == "STOPS_EARLY" else "yellow"
         return (
-            f"- Pattern: [bold {color}]{op}[/bold {color}]\n"
-            f"- Markets Analyzed: [cyan]{analyzed}[/cyan]"
+            f"🏁 Pattern: [bold {color}]{op}[/bold {color}]\n"
+            f"📊 Markets Analyzed: [cyan]{analyzed}[/cyan]"
         )
 
     @staticmethod
     def _render_insights(insights: List[str]) -> str:
-        return "\n".join(f"- {i}" for i in insights)
+        return "\n".join(f"💡 {i}" for i in insights)
+
+    # ------------------------------------------------------------------
+    # Helper: strip rich markup for Markdown export
+    # ------------------------------------------------------------------
 
     @staticmethod
     def _strip_rich_markup(text: str) -> str:
-        """Remove rich markup tags for plain-text / Markdown output."""
-        import re
+        """Remove rich console markup tags like [bold], [green], etc."""
         return re.sub(r'\[/?[^\]]+\]', '', text)
 
     # ------------------------------------------------------------------
@@ -282,7 +286,7 @@ class ReportGenerator:
         dn = inv.get("delta_neutral_score", 0)
         if dn > 0.8:
             insights.append(
-                f"Near-neutral inventory management (score {dn:.2f}) - pure spread capture"
+                f"Near-neutral inventory management (score {dn:.2f}) — pure spread capture"
             )
         else:
             insights.append(
@@ -292,7 +296,7 @@ class ReportGenerator:
         spct = pnl.get("spread_pct", 0)
         if spct > 70:
             insights.append(
-                f"~{spct:.0f}% of P/L from spread capture - copy-able with resting orders"
+                f"~{spct:.0f}% of P/L from spread capture — copy-able with resting orders"
             )
 
         pattern = resolution.get("overall_pattern", "")
@@ -300,7 +304,7 @@ class ReportGenerator:
             insights.append(f"Resolution risk management: {pattern.replace('_', ' ').title()}")
 
         if not insights:
-            insights.append("Not enough data for insights - try fetching more trades")
+            insights.append("Not enough data for insights — try fetching more trades")
 
         return insights
 
@@ -318,7 +322,7 @@ class ReportGenerator:
         ms = results.get("market_selection", {})
 
         lines = [
-            f"# - PBot's Shadow - Intelligence Report: {target_name}",
+            f"# 🌑 PBot's Shadow — Intelligence Report: {target_name}",
             f"",
             f"_Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}_",
             f"",
@@ -350,43 +354,81 @@ class ReportGenerator:
             f"| Avg Spread | ${spread.get('avg_spread', 0):.6f} |",
             f"| Min Spread | ${spread.get('min_spread', 0):.6f} |",
             f"| Max Spread | ${spread.get('max_spread', 0):.6f} |",
-            f"",
-            f"### Top Spread Markets",
-            f"",
-            f"| Market ID | Buys | Sells | Spread |",
-            f"|-----------|------|-------|--------|",
-            *[
-                f"| {m.get('market_id', '?')[:24]} | {m.get('buy_count', 0)} | {m.get('sell_count', 0)} | ${m.get('spread_captured', 0):.4f} |"
-                for m in spread.get("top_markets", [])[:5]
-            ],
-            f"",
-            f"## Market Selection",
-            f"",
-            f"| Metric | Value |",
-            f"|--------|-------|",
-            f"| Unique Markets | {ms.get('total_unique_markets', 0)} |",
-            f"| Total Volume | ${ms.get('total_volume_usd', 0):,.2f} |",
-            f"| Zero-Fee Markets | {ms.get('zero_fee_markets', 0)} |",
-            f"| Fee-Enabled Markets | {ms.get('fee_enabled_markets', 0)} |",
-            f"",
-            f"### Top Markets by Trades",
-            f"",
-            f"| Market | Category | Trades | Volume | % |",
-            f"|--------|----------|--------|--------|---|",
-            *[
-                f"| {m.get('title', m.get('market_id', '?'))[:40]} | {m.get('category', '?')} | {m.get('trade_count', 0):,} | ${m.get('volume_usd', 0):,.0f} | {m.get('trade_count', 0) / (ms.get('total_trades', 1) or 1) * 100:.1f}% |"
-                for m in ms.get("top_markets_by_trades", [])[:10]
-            ],
-            f"",
-            f"### Category Distribution",
-            f"",
-            f"| Category | Trades | Volume | % |",
-            f"|----------|--------|--------|---|",
-            *[
-                f"| {cat} | {info.get('trade_count', 0):,} | ${info.get('volume_usd', 0):,.0f} | {info.get('pct', 0):.1f}% |"
-                for cat, info in ms.get("category_distribution", {}).items()
-            ],
-            f"",
+        ]
+
+        # NEW: Top Spread Markets sub-table
+        top_spread_markets = spread.get("top_markets", [])
+        if top_spread_markets:
+            lines += [
+                f"",
+                f"### Top Spread Markets",
+                f"",
+                f"| Market ID | Buys | Sells | Spread |",
+                f"|-----------|------|-------|--------|",
+            ]
+            for m in top_spread_markets[:5]:
+                sp = m.get("spread_captured")
+                sp_str = f"${sp:.4f}" if sp is not None else "N/A"
+                lines.append(
+                    f"| {m.get('market_id', '?')[:24]} "
+                    f"| {m.get('buy_count', 0)} "
+                    f"| {m.get('sell_count', 0)} "
+                    f"| {sp_str} |"
+                )
+
+        # NEW: Market Selection section
+        lines += [f""]
+        if ms:
+            total = ms.get("total_trades", 1) or 1
+            unique = ms.get("unique_markets", 0)
+            total_vol = ms.get("total_volume_usd", 0)
+
+            lines += [
+                f"## Market Selection",
+                f"",
+                f"- **Unique Markets**: {unique}",
+                f"- **Total Volume**: ${total_vol:,.0f}",
+                f"- **Total Trades**: {total:,}",
+                f"",
+            ]
+
+            top_markets = ms.get("top_markets_by_trades", [])
+            if top_markets:
+                lines += [
+                    f"### Top Markets by Trades",
+                    f"",
+                    f"| Market | Category | Trades | Volume | % |",
+                    f"|--------|----------|--------|--------|---|",
+                ]
+                for m in top_markets[:10]:
+                    pct = m.get("trade_count", 0) / total * 100
+                    lines.append(
+                        f"| {m.get('title', m.get('market_id', '?'))[:32]} "
+                        f"| {m.get('category', '?')[:16]} "
+                        f"| {m.get('trade_count', 0):,} "
+                        f"| ${m.get('volume_usd', 0):,.0f} "
+                        f"| {pct:.1f}% |"
+                    )
+                lines.append(f"")
+
+            cats = ms.get("category_distribution", {})
+            if cats:
+                lines += [
+                    f"### Category Distribution",
+                    f"",
+                    f"| Category | Trades | Volume | % |",
+                    f"|----------|--------|--------|---|",
+                ]
+                for cat_name, cat_data in cats.items():
+                    lines.append(
+                        f"| {cat_name} "
+                        f"| {cat_data.get('count', 0):,} "
+                        f"| ${cat_data.get('volume', 0):,.0f} "
+                        f"| {cat_data.get('pct', 0):.0f}% |"
+                    )
+                lines.append(f"")
+
+        lines += [
             f"## P/L Decomposition",
             f"",
             f"| Source | Amount | % |",
@@ -407,10 +449,21 @@ class ReportGenerator:
             f"",
             f"Pattern: **{resolution.get('overall_pattern', 'N/A')}**",
             f"",
-            f"## Actionable Insights",
-            f"",
-            *[f"- {self._strip_rich_markup(insight)}" for insight in self._generate_insights(results)],
-            f"",
+        ]
+
+        # NEW: Actionable Insights section
+        insights = self._generate_insights(results)
+        if insights:
+            lines += [
+                f"## Actionable Insights",
+                f"",
+            ]
+            for insight in insights:
+                clean = self._strip_rich_markup(insight)
+                lines.append(f"- 💡 {clean}")
+            lines.append(f"")
+
+        lines += [
             f"---",
             f"",
             f"_This report was generated by [PBot's Shadow](https://github.com/Rug-P/pbots-shadow). "
